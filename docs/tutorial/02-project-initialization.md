@@ -137,3 +137,137 @@ You can run this example directly in your browser on:
 </Tabs>
 
 :::
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multiplayer Car Racing</title>
+  <style>
+    body {
+      background: #111;
+      margin: 0;
+      font-family: sans-serif;
+      overflow-x: hidden;
+    }
+    #gameArea {
+      width: 400px;
+      height: 600px;
+      margin: 20px auto;
+      background: repeating-linear-gradient(to bottom, #333 0 40px, #444 40px 80px);
+      position: relative;
+      border: 2px solid #fff;
+      overflow: hidden;
+    }
+    .car {
+      width: 50px;
+      height: 100px;
+      border-radius: 10px;
+      position: absolute;
+      bottom: 20px;
+      transition: left 0.1s linear;
+    }
+    #info {
+      color: white;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+    .controls {
+      width: 400px;
+      margin: 10px auto;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">Multiplayer Car Racing</div>
+  <div id="gameArea"></div>
+  <div class="controls">
+    <button id="leftBtn">◀️</button>
+    <button id="rightBtn">▶️</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const gameArea = document.getElementById("gameArea");
+    const leftBtn = document.getElementById("leftBtn");
+    const rightBtn = document.getElementById("rightBtn");
+
+    const players = {};
+
+    function createCar(id, color) {
+      const car = document.createElement("div");
+      car.classList.add("car");
+      car.style.background = color;
+      car.style.left = "175px";
+      gameArea.appendChild(car);
+      players[id] = car;
+    }
+
+    function removeCar(id) {
+      if(players[id]) {
+        gameArea.removeChild(players[id]);
+        delete players[id];
+      }
+    }
+
+    function updatePosition(id, pos) {
+      if(players[id]) {
+        players[id].style.left = pos.x + "px";
+      }
+    }
+
+    socket.on("currentPlayers", (serverPlayers) => {
+      for (const id in serverPlayers) {
+        if (!players[id]) {
+          createCar(id, id === socket.id ? "red" : "yellow");
+          updatePosition(id, serverPlayers[id]);
+        }
+      }
+    });
+
+    socket.on("newPlayer", ({ id, position }) => {
+      createCar(id, "yellow");
+      updatePosition(id, position);
+    });
+
+    socket.on("playerMoved", ({ id, position }) => {
+      updatePosition(id, position);
+    });
+
+    socket.on("playerDisconnected", (id) => {
+      removeCar(id);
+    });
+
+    function moveLeft() {
+      socket.emit("move", "left");
+    }
+    function moveRight() {
+      socket.emit("move", "right");
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if(e.key === "ArrowLeft") moveLeft();
+      else if(e.key === "ArrowRight") moveRight();
+    });
+
+    leftBtn.addEventListener("click", moveLeft);
+    rightBtn.addEventListener("click", moveRight);
+  </script>
+</body>
+</html>
+npm init -y
+npm install express socket.io
+node server.js
