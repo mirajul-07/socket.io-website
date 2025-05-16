@@ -1,4 +1,52 @@
----
+---const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(express.static("public"));
+
+let players = {};
+
+io.on("connection", (socket) => {
+  console.log("New player connected: ", socket.id);
+
+  players[socket.id] = { x: 175, y: 500 };
+
+  // Send existing players to the new player
+  socket.emit("currentPlayers", players);
+
+  // Notify others about new player
+  socket.broadcast.emit("newPlayer", { id: socket.id, position: players[socket.id] });
+
+  // Listen to movement commands
+  socket.on("move", (direction) => {
+    if (!players[socket.id]) return;
+
+    if (direction === "left") players[socket.id].x -= 10;
+    else if (direction === "right") players[socket.id].x += 10;
+
+    // Clamp position inside boundaries
+    if (players[socket.id].x < 0) players[socket.id].x = 0;
+    if (players[socket.id].x > 350) players[socket.id].x = 350;
+
+    io.emit("playerMoved", { id: socket.id, position: players[socket.id] });
+  });
+
+  // Remove player on disconnect
+  socket.on("disconnect", () => {
+    console.log("Player disconnected: ", socket.id);
+    delete players[socket.id];
+    io.emit("playerDisconnected", socket.id);
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 title: "Tutorial step #1 - Project initialization"
 sidebar_label: "Step #1: Project initialization"
 slug: step-1
